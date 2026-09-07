@@ -10,7 +10,7 @@ macOS AI Usage Status & Model Routing Support
 
 ## Status
 
-`Preparing Public Release`
+`Public / Portfolio Ready`
 
 ## Description
 
@@ -31,4 +31,4 @@ macOS AI Usage Status & Model Routing Support
 
 ## Repository
 
-`Preparing Public Release`
+https://github.com/Keyco55/keyco-ai-status-hub

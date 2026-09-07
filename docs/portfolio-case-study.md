@@ -89,16 +89,11 @@ upstream 고지와 MIT License 전문은 [`ATTRIBUTION.md`](../ATTRIBUTION.md)�
 
 ## Current Status
 
-`Preparing Public Release`
+`Public / Portfolio Ready`
 
-현재 feature branch에 공개용 설명, architecture asset, 합성 demo visual을 추가하는 단계입니다. GitHub remote와 public repository는 아직 만들지 않았고, 실제 Mac runtime·CodexBar config·credential은 변경하지 않았습니다.
+GitHub repository는 https://github.com/Keyco55/keyco-ai-status-hub 에 PUBLIC으로 공개되었으며 default branch는 `main`입니다. 실제 Mac runtime·CodexBar config·credential은 공개 범위에 포함하지 않았습니다.
 
-공개 전 남은 확인 사항:
-
-- Alibaba credential rotation을 사용자 주도로 완료
-- LICENSE의 copyright holder 표기를 사용자와 최종 확인
-- 추가된 파일까지 포함한 final security gate 수행
-- 공개 repository 생성 및 push에 대한 별도 사용자 승인
+Security/public release gate는 `PASS`이며, LICENSE holder는 `Copyright (c) 2026 keyco`로 확정되었습니다. Alibaba credential rotation blocker도 해결되었고 public release 승인과 push가 완료되었습니다.
 
 ## Portfolio Accuracy Boundary
 

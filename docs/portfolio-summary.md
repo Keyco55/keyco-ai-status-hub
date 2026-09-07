@@ -78,10 +78,11 @@ Status Hub는 사용자가 여러 AI model과 agent를 병렬로 운영하는 �
 
 ## Current status
 
-- Portfolio state: `Preparing Public Release`
-- 공개 초안 branch: `feat/initial-public-release`
-- 현재 단계: 문서·예시 자산·공개 전 보안 검토 준비
-- GitHub remote와 public repository: 아직 생성하지 않음
+- Portfolio state: `Public / Portfolio Ready`
+- Repository: https://github.com/Keyco55/keyco-ai-status-hub
+- Default remote branch: `main`
+- Security/public release gate: `PASS`
+- LICENSE holder: `Copyright (c) 2026 keyco`
 - 원본 Mac runtime과 CodexBar 설정: 이 작업에서 변경하지 않음
 
-GitHub 공개 전에는 Alibaba credential rotation, LICENSE holder 표기 확인, 최종 security gate와 공개 승인 절차가 남아 있습니다.
+Alibaba credential rotation blocker는 해결되었으며, public release 승인과 push가 완료되었습니다.
