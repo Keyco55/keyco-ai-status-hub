@@ -32,7 +32,7 @@ Human Model Routing Decision
 
 ## Direct contribution
 
-현재 Mac에서 실제 사용 중인 integration layer를 기준으로 다음 범위를 직접 구현·튜닝·공개용으로 정리했습니다.
+직접 구현한 범위는 다음과 같습니다.
 
 - loopback `/usage` endpoint 소비
 - Codex, Antigravity, Alibaba Token Plan response의 quota window 정규화
@@ -62,9 +62,9 @@ CodexBar의 provider 인증, cookie 처리, provider backend 자체는 이 프�
 
 ## Privacy
 
-공개용 repository와 demo asset에는 실제 계정 이메일, account ID, credential, cookie, token, raw provider response, cost history, 실제 status cache, backup, compiled binary를 포함하지 않습니다. 예시 화면은 합성 데이터만 사용합니다.
+Status Hub는 account identity, credential, cookie, token, raw provider response, cost history를 status cache에 저장하지 않습니다. Demo asset은 합성 데이터를 사용합니다.
 
-실제 provider 인증 경계는 별도 설치된 CodexBar와 로컬 환경에 남깁니다. 이 repository는 그 인증값을 읽어 공개하거나 재배포하는 것을 목표로 하지 않습니다.
+Provider 인증은 별도 설치된 CodexBar와 로컬 환경에서 관리되며, Status Hub는 표시 가능한 usage 상태만 소비합니다.
 
 ## Multi-Agent connection
 
@@ -81,8 +81,4 @@ Status Hub는 사용자가 여러 AI model과 agent를 병렬로 운영하는 �
 - Portfolio state: `Public / Portfolio Ready`
 - Repository: https://github.com/Keyco55/keyco-ai-status-hub
 - Default remote branch: `main`
-- Security/public release gate: `PASS`
 - LICENSE holder: `Copyright (c) 2026 keyco`
-- 원본 Mac runtime과 CodexBar 설정: 이 작업에서 변경하지 않음
-
-Alibaba credential rotation blocker는 해결되었으며, public release 승인과 push가 완료되었습니다.

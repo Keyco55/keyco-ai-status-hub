@@ -94,7 +94,7 @@ CodexBar provider 조회 방식, 인증, cookie 처리 자체는 이 프로젝�
 ## 설치 및 사용 방법
 
 1. upstream CodexBar를 먼저 설치합니다.
-2. CodexBar에서 사용할 provider를 직접 설정합니다. credential과 cookie는 이 repo에 넣지 않습니다.
+2. CodexBar에서 사용할 provider와 인증을 설정합니다. 인증 정보는 CodexBar의 로컬 설정에서 관리됩니다.
 3. src/ai-resource-hud를 로컬 실행 경로에 배치합니다.
 4. src/ai-resource-hud-menu.swift를 AppKit helper로 빌드합니다.
 5. launchd/*.example.plist의 placeholder를 현재 환경에 맞게 치환합니다.
@@ -132,26 +132,18 @@ account email, account ID, cookie, token, raw provider response, 비용 history�
 
 ## 개인정보 보호 설계
 
-- server는 loopback 주소만 사용합니다.
-- collector는 proxy를 사용하지 않고 local endpoint만 요청합니다.
-- raw response를 cache에 저장하지 않습니다.
+- collector는 proxy를 사용하지 않고 loopback endpoint만 요청합니다.
+- raw provider response는 status cache에 저장하지 않습니다.
+- cache에는 표시에 필요한 상태와 quota/reset 정보만 기록합니다.
+- credential, cookie, account identity를 Status Hub가 별도로 저장하지 않습니다.
+- cache directory에는 `0700`, cache file에는 `0600` 권한을 적용합니다.
 - 임시 파일을 만든 뒤 atomic replace로 cache를 갱신합니다.
-- cache 권한을 실행 시 다시 확인합니다.
-- 공개 저장소에는 실제 config, cache, backup, screenshot 원본을 넣지 않습니다.
 
 ## CodexBar와의 관계
 
 CodexBar는 이 프로젝트의 데이터 공급원입니다. CodexBar 자체를 제작했다거나 upstream source를 수정했다고 주장하지 않습니다.
 
 upstream CodexBar는 MIT License 프로젝트이며, 자세한 출처와 attribution은 ATTRIBUTION.md에 기록했습니다.
-
-## 스크린샷
-
-개인 계정과 usage 정보가 보이는 원본 screenshot은 공개하지 않습니다. 공개용 이미지는 개인정보와 내부 browser tab을 제거한 crop 또는 examples/status.example.json을 사용한 예시 화면만 허용합니다.
-
-## 보안 주의사항
-
-이 저장소의 sample과 template에는 credential을 넣지 않습니다. 실제 환경에서 provider를 연결할 때는 CodexBar의 로컬 인증 경계를 사용하고, cookie·token·session이 repository에 들어가지 않았는지 push 전에 확인해야 합니다.
 
 ## 라이선스 및 출처
 

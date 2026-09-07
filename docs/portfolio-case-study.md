@@ -43,6 +43,8 @@ Menu Bar  Terminal   cmux
 
 Mermaid 원본은 [`portfolio-architecture.mmd`](portfolio-architecture.mmd)에, 기존 architecture 설명은 [`architecture.md`](architecture.md)에 보존했습니다.
 
+합성 데이터를 사용한 화면 예시는 [`status-hub-demo.svg`](screenshots/status-hub-demo.svg)에서 확인할 수 있습니다.
+
 경계는 명확합니다.
 
 - CodexBar: provider usage 조회와 local API 제공
@@ -53,31 +55,20 @@ Mermaid 원본은 [`portfolio-architecture.mmd`](portfolio-architecture.mmd)에,
 
 ## Privacy / Security
 
-공개용 초안은 다음 경계를 지킵니다.
+Status Hub의 data boundary는 다음과 같습니다.
 
-- 실제 CodexBar config, cookie, token, session은 포함하지 않음
-- account email, account ID, cost history, 실제 quota cache는 포함하지 않음
-- raw provider response를 공개용 cache에 저장하지 않음
-- demo 화면은 fake/sample data만 사용
-- 실제 Mac의 LaunchAgent, backup, compiled binary는 복사하지 않음
+- CodexBar의 credential, cookie, token, session을 별도로 저장하지 않음
+- account email, account ID, cost history를 status cache에 저장하지 않음
+- raw provider response 대신 표시 가능한 metric만 기록
+- demo 화면은 합성 sample data를 사용
 - cache 작성 시 restrictive permission과 atomic replacement를 사용
 - collector는 loopback 주소의 local endpoint만 요청하고 proxy를 사용하지 않음
 
-이 설계는 공개 저장소에 민감정보가 들어가는 경로를 줄이는 integration 경계입니다. provider 인증 자체나 외부 서비스의 보안성을 대신 보증하는 기능은 아닙니다.
+이 설계는 수집·보관되는 데이터 범위를 줄이는 integration 경계입니다. Provider 인증 자체나 외부 서비스의 보안 기능을 대신하지 않습니다.
 
 ## Multi-Agent Development
 
-이 도구는 Multi-Agent 개발환경 전체를 구현하지 않습니다. 여러 AI model을 Worker, Senior Review, QA 등 서로 다른 역할에 사용할 때 현재 quota와 reset 상태를 빠르게 확인하고, 사람이 routing 결정을 내릴 수 있도록 지원하는 monitoring layer입니다.
-
-따라서 포트폴리오에서는 다음처럼 표현합니다.
-
-> Multi-Agent model routing support
-
-다음처럼 표현하지 않습니다.
-
-- AI orchestration platform 전체를 만들었다
-- model을 자동으로 선택하고 실행한다
-- tmux 또는 cmux 전체를 직접 제작했다
+여러 AI model을 Worker, Senior Review, QA 등 서로 다른 역할에 사용할 때 현재 quota와 reset 상태를 빠르게 확인하고, 사람이 routing 결정을 내릴 수 있도록 지원합니다.
 
 ## CodexBar Relationship
 
@@ -91,14 +82,8 @@ upstream 고지와 MIT License 전문은 [`ATTRIBUTION.md`](../ATTRIBUTION.md)�
 
 `Public / Portfolio Ready`
 
-GitHub repository는 https://github.com/Keyco55/keyco-ai-status-hub 에 PUBLIC으로 공개되었으며 default branch는 `main`입니다. 실제 Mac runtime·CodexBar config·credential은 공개 범위에 포함하지 않았습니다.
+GitHub repository는 https://github.com/Keyco55/keyco-ai-status-hub 에 PUBLIC으로 제공되며 default branch는 `main`입니다. LICENSE holder는 `Copyright (c) 2026 keyco`입니다.
 
-Security/public release gate는 `PASS`이며, LICENSE holder는 `Copyright (c) 2026 keyco`로 확정되었습니다. Alibaba credential rotation blocker도 해결되었고 public release 승인과 push가 완료되었습니다.
+## Project Positioning
 
-## Portfolio Accuracy Boundary
-
-이 프로젝트를 소개할 때 가장 정확한 한 문장은 다음과 같습니다.
-
-> CodexBar local usage API를 sanitized cache와 macOS status/terminal integration으로 연결해, 여러 AI model을 운영하는 개발환경의 human routing 판단을 지원한 프로젝트.
-
-`CodexBar developer`, `full CodexBar fork`, `automatic model routing`, `complete Multi-Agent orchestration`이라는 표현은 사용하지 않습니다.
+Status Hub는 CodexBar를 upstream data source로 사용하는 local usage/status integration layer입니다. Quota와 reset 정보를 macOS status 및 terminal 환경에 제공하며, model routing은 사용자가 결정합니다. Status Hub 자체는 automatic orchestration platform이 아닙니다.

@@ -15,4 +15,4 @@ upstream MIT License 전문은 third_party/CodexBar-LICENSE.txt에 보존했습�
 
 ## 직접 작성한 부분
 
-Python collector, Swift AppKit menu helper, status cache schema, launchd template, terminal/cmux integration 예시는 이 프로젝트의 직접 작성 또는 사용자 환경에서 추출한 공개용 integration layer입니다.
+Python collector, Swift AppKit menu helper, status cache schema, launchd template, terminal/cmux integration 예시는 이 프로젝트가 제공하는 integration layer입니다.

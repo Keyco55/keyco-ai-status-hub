@@ -10,7 +10,7 @@
 - codex
 - alibabatokenplan
 
-provider 인증은 CodexBar의 Settings 또는 공식 CLI 흐름에서 직접 설정합니다. cookie header, API key, token은 이 저장소의 sample이나 README에 기록하지 않습니다.
+provider 인증은 CodexBar의 Settings 또는 공식 CLI 흐름에서 설정하며, 인증 정보는 CodexBar의 로컬 설정 경계에서 관리됩니다.
 
 ## Local server
 
