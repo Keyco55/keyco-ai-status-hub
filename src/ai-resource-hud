@@ -1,0 +1,422 @@
+#!/usr/bin/env python3
+"""Local CodexBar-backed quota cache and terminal status formatter.
+
+The collector talks only to the loopback CodexBar server.  It deliberately
+keeps only the small, display-safe quota subset in the cache: no account
+identity, cookies, tokens, API keys, headers, or raw provider responses.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import fcntl
+import json
+import os
+import pathlib
+import re
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+from typing import Any
+
+
+HOME = pathlib.Path(os.environ.get("HOME") or pathlib.Path.home())
+CACHE_DIR = HOME / ".cache" / "ai-resource-hud"
+CACHE_FILE = CACHE_DIR / "status.json"
+LOCK_FILE = CACHE_DIR / ".collector.lock"
+SERVER_URL = "http://127.0.0.1:8097/usage?provider=all"
+PROVIDER_IDS = ("codex", "antigravity", "alibabatokenplan")
+RUNTIME_VERSION = os.environ.get("AI_RESOURCE_HUD_RUNTIME_VERSION", "unknown")
+REQUEST_TIMEOUT = 30
+
+
+def utc_now() -> str:
+    return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def clean_source(value: Any) -> str:
+    if not isinstance(value, str):
+        return "unknown"
+    value = value.strip()
+    if 0 < len(value) <= 40 and re.fullmatch(r"[A-Za-z0-9_.-]+", value):
+        return value
+    return "unknown"
+
+
+def clean_reset(value: Any) -> str | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value > 1_000_000_000:
+            try:
+                return dt.datetime.fromtimestamp(value, tz=dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+            except (OverflowError, OSError, ValueError):
+                return None
+        return None
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if not value or len(value) > 128 or "@" in value or "\n" in value or "\r" in value:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        return parsed.astimezone(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    except ValueError:
+        pass
+    lower = value.lower()
+    if re.search(r"\d", value) and re.search(r"(?:sec|min|hour|day|week|[smhdw])", lower):
+        return value
+    return None
+
+
+def number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def metric_from_window(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    candidate = value
+    if isinstance(value.get("window"), dict):
+        candidate = value["window"]
+
+    remaining: float | None = None
+    for key in ("remainingPercent", "remaining_percentage", "percentRemaining"):
+        raw = number(candidate.get(key))
+        if raw is not None:
+            remaining = raw
+            break
+    if remaining is None:
+        used_percent = number(candidate.get("usedPercent"))
+        if used_percent is not None:
+            remaining = 100.0 - used_percent
+    if remaining is None:
+        used = number(candidate.get("used"))
+        total = number(candidate.get("total"))
+        if used is not None and total is not None and total > 0:
+            remaining = 100.0 * (1.0 - used / total)
+    if remaining is None:
+        left = number(candidate.get("remaining"))
+        total = number(candidate.get("limit")) or number(candidate.get("total"))
+        if left is not None and total is not None and total > 0:
+            remaining = 100.0 * left / total
+    if remaining is None:
+        return None
+
+    remaining = max(0.0, min(100.0, remaining))
+    result: dict[str, Any] = {"remainingPercent": round(remaining, 2)}
+    for key in ("resetsAt", "resetAt", "resetTimestamp", "resetTime", "resetDescription"):
+        reset = clean_reset(candidate.get(key))
+        if reset is not None:
+            result["resetAt"] = reset
+            break
+    return result
+
+
+def label_text(key: str, value: Any) -> str:
+    parts = [key]
+    if isinstance(value, dict):
+        for field in ("id", "title", "label", "name", "model", "kind", "type", "description"):
+            raw = value.get(field)
+            if isinstance(raw, str):
+                parts.append(raw)
+    return " ".join(parts).lower()
+
+
+def windows(usage: dict[str, Any]) -> list[tuple[str, Any]]:
+    result: list[tuple[str, Any]] = []
+    for key in ("primary", "secondary", "tertiary", "weekly", "sevenDay", "seven_day"):
+        if key in usage:
+            result.append((key, usage[key]))
+    extra = usage.get("extraRateWindows")
+    if isinstance(extra, list):
+        result.extend(("extra", item) for item in extra)
+    return result
+
+
+def record_base(raw: dict[str, Any]) -> dict[str, Any]:
+    return {"status": "unavailable", "source": clean_source(raw.get("source"))}
+
+
+def provider_record(provider: str, raw: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {"status": "unavailable", "source": "loopback"}
+    record = record_base(raw)
+    usage = raw.get("usage")
+    if raw.get("error") is not None or not isinstance(usage, dict):
+        return record
+
+    if provider == "codex":
+        primary = metric_from_window(usage.get("primary"))
+        weekly = metric_from_window(usage.get("secondary"))
+        if primary is None or weekly is None:
+            for key, value in windows(usage):
+                metric = metric_from_window(value)
+                if metric is None:
+                    continue
+                minutes = number(value.get("windowMinutes")) if isinstance(value, dict) else None
+                if primary is None and (minutes == 300 or key == "primary"):
+                    primary = metric
+                elif weekly is None and (minutes == 10080 or key == "secondary"):
+                    weekly = metric
+        record["metrics"] = {"fiveHour": primary, "weekly": weekly}
+    elif provider == "antigravity":
+        gemini = None
+        claude_gpt = None
+        for key, value in windows(usage):
+            metric = metric_from_window(value)
+            if metric is None:
+                continue
+            label = label_text(key, value)
+            if gemini is None and "gemini" in label:
+                gemini = metric
+            elif claude_gpt is None and ("claude" in label or "gpt" in label or "chat" in label):
+                claude_gpt = metric
+        for key, field in (("gemini", "geminiFiveHour"), ("geminiFiveHour", "geminiFiveHour"), ("claudeGpt", "claudeGptFiveHour"), ("claudeGptFiveHour", "claudeGptFiveHour")):
+            metric = metric_from_window(usage.get(key))
+            if metric is not None and field == "geminiFiveHour" and gemini is None:
+                gemini = metric
+            if metric is not None and field == "claudeGptFiveHour" and claude_gpt is None:
+                claude_gpt = metric
+        gemini_weekly = None
+        claude_gpt_weekly = None
+
+        extra = usage.get("extraRateWindows")
+        if isinstance(extra, list):
+            for item in extra:
+                if not isinstance(item, dict):
+                    continue
+
+                window = item.get("window")
+                if not isinstance(window, dict):
+                    continue
+
+                metric = metric_from_window(window)
+                if metric is None:
+                    continue
+
+                minutes = number(window.get("windowMinutes"))
+                identity = f"{item.get('id', '')} {item.get('title', '')}".lower()
+
+                if minutes == 10080:
+                    if "gemini" in identity:
+                        gemini_weekly = metric
+                    elif "claude" in identity or "gpt" in identity or "3p" in identity:
+                        claude_gpt_weekly = metric
+
+        record["metrics"] = {
+            "geminiFiveHour": gemini,
+            "geminiWeekly": gemini_weekly,
+            "claudeGptFiveHour": claude_gpt,
+            "claudeGptWeekly": claude_gpt_weekly,
+        }
+    else:
+        weekly = None
+        for key, value in windows(usage):
+            metric = metric_from_window(value)
+            if metric is None:
+                continue
+            label = label_text(key, value)
+            minutes = number(value.get("windowMinutes")) if isinstance(value, dict) else None
+            if minutes == 10080 or any(token in label for token in ("weekly", "7-day", "seven-day", "seven_day")):
+                weekly = metric
+                break
+        if weekly is None:
+            weekly = metric_from_window(usage)
+        record["metrics"] = {"sevenDay": weekly}
+
+    metrics = record.get("metrics", {})
+    if isinstance(metrics, dict) and any(isinstance(value, dict) for value in metrics.values()):
+        record["status"] = "ready"
+        record["lastSuccessAt"] = utc_now()
+    return record
+
+
+def provider_key(value: Any) -> str:
+    if value == "alibaba-token-plan":
+        return "alibabatokenplan"
+    return value if isinstance(value, str) else ""
+
+
+def find_raw(payload: Any, provider: str) -> dict[str, Any] | None:
+    if not isinstance(payload, list):
+        return None
+    for item in payload:
+        if isinstance(item, dict) and provider_key(item.get("provider")) == provider:
+            return item
+    return None
+
+
+def load_cache() -> dict[str, Any]:
+    try:
+        with CACHE_FILE.open("r", encoding="utf-8") as handle:
+            value = json.load(handle)
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def has_metric(record: Any) -> bool:
+    if not isinstance(record, dict):
+        return False
+    metrics = record.get("metrics")
+    return isinstance(metrics, dict) and any(isinstance(value, dict) for value in metrics.values())
+
+
+def merge_stale(previous: Any, current: dict[str, Any]) -> dict[str, Any]:
+    if not has_metric(previous):
+        return current
+    merged = {"status": "stale", "source": current.get("source", "unknown"), "metrics": previous.get("metrics", {})}
+    if isinstance(previous.get("lastSuccessAt"), str):
+        merged["lastSuccessAt"] = previous["lastSuccessAt"]
+    return merged
+
+
+def fetch_snapshot() -> Any:
+    request = urllib.request.Request(SERVER_URL, headers={"Accept": "application/json"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=REQUEST_TIMEOUT) as response:
+        return json.load(response)
+
+
+def write_cache(snapshot: dict[str, Any]) -> None:
+    CACHE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(CACHE_DIR, 0o700)
+    descriptor, temporary = tempfile.mkstemp(prefix="status.", suffix=".tmp", dir=CACHE_DIR)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(snapshot, handle, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, CACHE_FILE)
+        os.chmod(CACHE_FILE, 0o600)
+    except Exception:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def collect() -> int:
+    CACHE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(CACHE_DIR, 0o700)
+    with LOCK_FILE.open("a+", encoding="utf-8") as lock:
+        os.chmod(LOCK_FILE, 0o600)
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        previous = load_cache()
+        try:
+            payload = fetch_snapshot()
+        except (OSError, urllib.error.URLError, ValueError, TypeError):
+            payload = None
+        providers: dict[str, Any] = {}
+        for provider in PROVIDER_IDS:
+            current = provider_record(provider, find_raw(payload, provider))
+            providers[provider] = current if current.get("status") == "ready" else merge_stale(previous.get("providers", {}).get(provider), current)
+        snapshot = {
+            "version": 1,
+            "runtimeVersion": RUNTIME_VERSION,
+            "snapshotAt": utc_now(),
+            "server": {"host": "127.0.0.1", "port": 8097, "refreshIntervalSeconds": 120, "requestTimeoutSeconds": REQUEST_TIMEOUT},
+            "providers": providers,
+        }
+        write_cache(snapshot)
+        return 0
+
+
+def percent_text(metric: Any) -> str:
+    if not isinstance(metric, dict):
+        return "--"
+    value = number(metric.get("remainingPercent"))
+    if value is None:
+        return "--"
+    if abs(value - round(value)) < 0.01:
+        return str(int(round(value)))
+    return f"{value:.1f}"
+
+
+def status_record(root: dict[str, Any], provider: str, metric_name: str) -> tuple[str, str, Any]:
+    record = root.get("providers", {}).get(provider, {})
+    if not isinstance(record, dict):
+        return "--", "unavailable", None
+    metric = record.get("metrics", {}).get(metric_name) if isinstance(record.get("metrics"), dict) else None
+    return percent_text(metric), str(record.get("status", "unavailable")), metric
+
+
+def render(root: dict[str, Any], mode: str) -> str:
+    ag, ag_status, _ = status_record(root, "antigravity", "geminiFiveHour")
+    cc, cc_status, _ = status_record(root, "antigravity", "claudeGptFiveHour")
+    codex, codex_status, _ = status_record(root, "codex", "fiveHour")
+    ali, ali_status, _ = status_record(root, "alibabatokenplan", "sevenDay")
+    values = [("AG", ag, ag_status), ("CC" if mode == "cmux" else "CG", cc, cc_status), ("C", codex, codex_status)]
+    if mode == "cmux":
+        values.append(("ALI", ali, ali_status))
+    parts = [f"{label} {value}" for label, value, _ in values]
+    states = {state for _, _, state in values}
+    if "unavailable" in states:
+        parts.append("UNAVAILABLE")
+    if "stale" in states:
+        parts.append("STALE")
+    return " · ".join(parts)
+
+
+def self_test() -> int:
+    if not CACHE_DIR.exists():
+        print("cache directory: absent")
+        return 1
+    directory_mode = CACHE_DIR.stat().st_mode & 0o777
+    print(f"cache directory mode: {directory_mode:04o}")
+    if directory_mode != 0o700:
+        return 1
+    if not CACHE_FILE.exists():
+        print("status file: absent")
+        return 1
+    file_mode = CACHE_FILE.stat().st_mode & 0o777
+    print(f"status file mode: {file_mode:04o}")
+    if file_mode != 0o600:
+        return 1
+    root = load_cache()
+    if root.get("version") != 1 or set(root.get("providers", {})) != set(PROVIDER_IDS):
+        print("status schema: invalid")
+        return 1
+    print("status schema: valid")
+    return 0
+
+
+def main() -> int:
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument("--tmux", action="store_true")
+    parser.add_argument("--cmux", action="store_true")
+    parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--status", action="store_true")
+    args = parser.parse_args()
+    if args.self_test:
+        return self_test()
+    if args.tmux or args.cmux or args.status:
+        root = load_cache()
+        if args.status:
+            print(json.dumps({"snapshotAt": root.get("snapshotAt"), "runtimeVersion": root.get("runtimeVersion"), "providers": {key: {"status": value.get("status"), "source": value.get("source"), "metricKeys": sorted((value.get("metrics") or {}).keys())} for key, value in (root.get("providers") or {}).items() if isinstance(value, dict)}}, ensure_ascii=False, sort_keys=True))
+            return 0
+        print(render(root, "cmux" if args.cmux else "tmux"))
+        return 0
+    return collect()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

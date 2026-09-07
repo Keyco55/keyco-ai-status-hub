@@ -1,0 +1,60 @@
+{
+  "example": true,
+  "version": 1,
+  "runtimeVersion": "example",
+  "snapshotAt": "2026-01-02T03:04:05Z",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8097,
+    "refreshIntervalSeconds": 120,
+    "requestTimeoutSeconds": 30
+  },
+  "providers": {
+    "antigravity": {
+      "status": "ready",
+      "source": "cli",
+      "metrics": {
+        "geminiFiveHour": {
+          "remainingPercent": 82.5,
+          "resetAt": "2026-01-02T08:00:00Z"
+        },
+        "geminiWeekly": {
+          "remainingPercent": 64,
+          "resetAt": "2026-01-05T03:00:00Z"
+        },
+        "claudeGptFiveHour": {
+          "remainingPercent": 41,
+          "resetAt": "2026-01-02T07:30:00Z"
+        },
+        "claudeGptWeekly": {
+          "remainingPercent": 58,
+          "resetAt": "2026-01-05T03:00:00Z"
+        }
+      }
+    },
+    "codex": {
+      "status": "ready",
+      "source": "oauth",
+      "metrics": {
+        "fiveHour": {
+          "remainingPercent": 76,
+          "resetAt": "2026-01-02T07:45:00Z"
+        },
+        "weekly": {
+          "remainingPercent": 69,
+          "resetAt": "2026-01-05T03:00:00Z"
+        }
+      }
+    },
+    "alibabatokenplan": {
+      "status": "ready",
+      "source": "web",
+      "metrics": {
+        "sevenDay": {
+          "remainingPercent": 63.4,
+          "resetAt": "2026-01-08T03:00:00Z"
+        }
+      }
+    }
+  }
+}

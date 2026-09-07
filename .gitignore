@@ -1,0 +1,36 @@
+.DS_Store
+*.swp
+*.tmp
+
+# Local credentials and runtime state
+.env
+.env.*
+config.json
+status.json
+*.sqlite
+*.sqlite-*
+*.cookie
+*.session
+*.token
+
+# Generated/local artifacts
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.app/
+*.dSYM/
+*.o
+*.dylib
+*.exec
+
+# Backups and real machine configuration
+*.bak
+*.backup
+launchd/*.plist
+!launchd/*.example.plist
+
+# Public screenshots must be reviewed before adding
+docs/screenshots/*
+!docs/screenshots/README.md
