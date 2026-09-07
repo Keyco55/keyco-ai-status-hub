@@ -1,0 +1,9 @@
+flowchart LR
+    A[CodexBar Local API<br/>loopback /usage] --> B[Python Collector<br/>quota/reset normalization]
+    B --> C[Sanitized Status Cache<br/>atomic JSON write]
+    C --> D[macOS Menu Bar<br/>Swift/AppKit]
+    C --> E[Terminal<br/>status / tmux]
+    C --> F[cmux<br/>status snippet]
+    D --> G[Human Model Routing Decision]
+    E --> G
+    F --> G

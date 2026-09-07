@@ -34,3 +34,4 @@ launchd/*.plist
 # Public screenshots must be reviewed before adding
 docs/screenshots/*
 !docs/screenshots/README.md
+!docs/screenshots/status-hub-demo.svg

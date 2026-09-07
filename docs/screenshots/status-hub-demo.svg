@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="460" viewBox="0 0 980 460" role="img" aria-labelledby="title desc">
+  <title id="title">AI Status Hub sample data demo</title>
+  <desc id="desc">A dark macOS-style status hub mockup using synthetic provider quota values.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#121722"/>
+      <stop offset="1" stop-color="#202a3b"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#273348"/>
+      <stop offset="1" stop-color="#1b2435"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000000" flood-opacity=".28"/>
+    </filter>
+  </defs>
+
+  <rect width="980" height="460" rx="28" fill="url(#background)"/>
+  <rect x="24" y="24" width="932" height="34" rx="12" fill="#0d111a" fill-opacity=".72"/>
+  <circle cx="46" cy="41" r="5" fill="#ff5f57"/>
+  <circle cx="64" cy="41" r="5" fill="#febc2e"/>
+  <circle cx="82" cy="41" r="5" fill="#28c840"/>
+  <text x="112" y="46" fill="#d9e4f5" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="14" font-weight="600">AI Status Hub</text>
+  <text x="786" y="46" fill="#8da2bd" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="12">예시 데이터 · Sample Data</text>
+
+  <text x="54" y="111" fill="#f4f7fb" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="27" font-weight="700">Provider status</text>
+  <text x="54" y="138" fill="#9eb0c8" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="14">Quota와 reset 상태를 한 화면에서 확인하는 privacy-preserving demo</text>
+
+  <g filter="url(#shadow)">
+    <rect x="48" y="174" width="276" height="188" rx="18" fill="url(#panel)" stroke="#3b4b66"/>
+    <rect x="352" y="174" width="276" height="188" rx="18" fill="url(#panel)" stroke="#3b4b66"/>
+    <rect x="656" y="174" width="276" height="188" rx="18" fill="url(#panel)" stroke="#3b4b66"/>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif">
+    <text x="76" y="214" fill="#80bfff" font-size="15" font-weight="700">AG · Antigravity</text>
+    <text x="76" y="255" fill="#f4f7fb" font-size="38" font-weight="700">72%</text>
+    <text x="76" y="282" fill="#a9bbd2" font-size="14">remaining · 5H window</text>
+    <rect x="76" y="306" width="220" height="8" rx="4" fill="#101722"/>
+    <rect x="76" y="306" width="158" height="8" rx="4" fill="#55c2ff"/>
+    <text x="76" y="342" fill="#7fe0aa" font-size="13">ready · reset in 4h 18m</text>
+
+    <text x="380" y="214" fill="#c5a8ff" font-size="15" font-weight="700">C · Codex</text>
+    <text x="380" y="255" fill="#f4f7fb" font-size="38" font-weight="700">64%</text>
+    <text x="380" y="282" fill="#a9bbd2" font-size="14">remaining · 5H window</text>
+    <rect x="380" y="306" width="220" height="8" rx="4" fill="#101722"/>
+    <rect x="380" y="306" width="141" height="8" rx="4" fill="#aa8bff"/>
+    <text x="380" y="342" fill="#7fe0aa" font-size="13">ready · reset in 2h 45m</text>
+
+    <text x="684" y="214" fill="#ffbd76" font-size="15" font-weight="700">ALI · Alibaba Token Plan</text>
+    <text x="684" y="255" fill="#f4f7fb" font-size="38" font-weight="700">34%</text>
+    <text x="684" y="282" fill="#a9bbd2" font-size="14">remaining · 7-day window</text>
+    <rect x="684" y="306" width="220" height="8" rx="4" fill="#101722"/>
+    <rect x="684" y="306" width="75" height="8" rx="4" fill="#ffb25f"/>
+    <text x="684" y="342" fill="#ffd28f" font-size="13">active · reset in 1h 20m</text>
+  </g>
+
+  <rect x="48" y="392" width="884" height="36" rx="12" fill="#0d111a" fill-opacity=".62"/>
+  <text x="70" y="416" fill="#91a5bf" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-size="13">CodexBar Local API  →  Python Collector  →  Sanitized Status Cache  →  Human Model Routing Decision</text>
+</svg>
