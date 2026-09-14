@@ -153,6 +153,29 @@ final class StatusController: NSObject, NSApplicationDelegate {
         return "\(minutes)m"
     }
 
+    // TESTABLE-START menu-state-title
+    /// Pure helper: detail-menu state label for one provider row.
+    /// STALE takes precedence over the value thresholds for metric-bearing
+    /// data so the status item and the menu state agree semantically.
+    /// Quota numbers themselves are never altered here.
+    func menuStateTitle(isAvailable: Bool, percentText: String, providerState: String) -> String {
+        if !isAvailable {
+            return "Status: unavailable"
+        }
+        if providerState == "stale" {
+            return "Status: stale"
+        }
+        let numeric = Double(percentText) ?? 0
+        if numeric >= 99.995 {
+            return "Status: ready"
+        }
+        if numeric <= 0 {
+            return "Status: stop"
+        }
+        return "Status: active"
+    }
+    // TESTABLE-END menu-state-title
+
     private func detailText(_ label: String, _ metric: [String: Any]?) -> String {
     let value = percent(metric)
 
@@ -200,6 +223,16 @@ private func snapshot(_ root: [String: Any]?) -> String {
                 providerRecord = nil
             }
             let metricValue = self.metric(record: providerRecord, name: definition.metric)
+                ?? {
+                    switch definition.key {
+                    case "AG":
+                        return self.metric(record: providerRecord, name: "geminiWeekly")
+                    case "CG":
+                        return self.metric(record: providerRecord, name: "claudeGptWeekly")
+                    default:
+                        return nil
+                    }
+                }()
             let providerState = providerRecord?["status"] as? String ?? "unavailable"
             let source = providerRecord?["source"] as? String ?? "unknown"
             let value = percent(metricValue)
@@ -247,26 +280,24 @@ private func snapshot(_ root: [String: Any]?) -> String {
                 menu.usage.title = detailText("Weekly", metricValue)
                 menu.reset.isHidden = true
             } else {
-                menu.usage.title = detailText("5H", metricValue)
                 let weeklyMetric = weeklyName.flatMap {
                     self.metric(record: providerRecord, name: $0)
                 }
-                menu.reset.title = detailText("Weekly", weeklyMetric)
-                menu.reset.isHidden = false
+                let fiveHourMetric = self.metric(record: providerRecord, name: definition.metric)
+                if fiveHourMetric == nil, weeklyMetric != nil {
+                    menu.usage.title = detailText("Weekly", weeklyMetric)
+                    menu.reset.isHidden = true
+                } else {
+                    menu.usage.title = detailText("5H", fiveHourMetric)
+                    menu.reset.title = detailText("Weekly", weeklyMetric)
+                    menu.reset.isHidden = false
+                }
             }
 
             menu.source.isHidden = true
             menu.snapshot.isHidden = true
 
-            if !isAvailable {
-                menu.state.title = "Status: unavailable"
-            } else if (Double(value) ?? 0) >= 99.995 {
-                menu.state.title = "Status: ready"
-            } else if (Double(value) ?? 0) <= 0 {
-                menu.state.title = "Status: stop"
-            } else {
-                menu.state.title = "Status: active"
-            }
+            menu.state.title = menuStateTitle(isAvailable: isAvailable, percentText: value, providerState: providerState)
         }
     }
 }

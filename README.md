@@ -58,6 +58,7 @@ CodexBar는 Peter Steinberger의 별도 오픈소스 프로젝트입니다. 이 
 1. CodexBar가 provider usage를 조회합니다.
 2. Python collector가 loopback endpoint를 읽습니다.
 3. collector가 표시 가능한 quota·reset·source만 추출합니다.
+   Antigravity가 offline이면 AGY 공식 status line payload의 최신 quota cache를 fallback으로 사용합니다.
 4. 별도 status cache에 atomic write합니다.
 5. 메뉴바·terminal·cmux가 cache를 읽습니다.
 6. 사람은 quota와 reset 상태를 보고 model routing을 결정합니다.
@@ -116,6 +117,42 @@ codexbar serve --host 127.0.0.1 --port 8097 \
 ~~~
 
 실제 provider 인증값과 개인별 설정은 CodexBar의 로컬 설정에서 관리해야 합니다.
+
+Antigravity fallback 설정 예시:
+
+~~~json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.local/bin/ai-resource-hud --agy-statusline",
+    "stack_with_default": true
+  }
+}
+~~~
+
+AGY가 보내는 전체 payload는 저장하지 않으며, quota의 remaining/reset 값만 별도 cache에 보관합니다.
+
+## Antigravity Fallback 동작 방식
+
+CodexBar의 Antigravity provider는 CodexBar/AGY CLI 버전 조합에 따라 독립적으로 offline일 수 있습니다(`source=offline`, 빈 응답, invalid JSON, transport 실패). Status Hub는 이 경우에도 동작을 유지합니다. CodexBar 자체를 수정하지 않습니다.
+
+실제 runtime 데이터 흐름은 다음과 같습니다.
+
+1. AGY 공식 statusLine이 매 tick마다 JSON payload을 `ai-resource-hud --agy-statusline`으로 전달합니다.
+2. collector는 payload에서 quota의 remaining/reset 값만 추출해 `~/.cache/ai-resource-hud/antigravity-statusline.json`(`0600`)에 보관합니다. email, conversation/session ID, workspace path, transcript path, prompt, model 대화 내용은 저장하지 않습니다.
+3. collector 수집 시 CodexBar의 Antigravity 상태가 ready가 아니면(offline 포함) fresh한 statusLine cache를 fallback으로 사용합니다. fresh한 fallback은 CodexBar 실패로 지워지지 않습니다.
+4. 수집 결과는 status snapshot(`status.json`)에 기록되고, Swift menu helper와 terminal/cmux integration이 snapshot을 읽어 표시합니다.
+
+5H quota가 있으면 5H를, 5H가 없고 Weekly만 있으면 Weekly를 표시합니다. 없는 값을 0으로 만들지 않습니다.
+
+## Health와 설치 Provenance
+
+- collector는 매 수집마다 sanitized health record(`~/.cache/ai-resource-hud/health.json`, `0600`)를 갱신합니다. 프로세스 종료 코드 0과 upstream 상태는 구분됩니다. 기록되는 것은 `last_collector_run`, `last_success`(직전 성공 시점 유지), `antigravity_source`, `antigravity_status`, `statusline_cache_state`, `codexbar_state`, `last_error_class`(허용된 error class만), `runtime_version`뿐이며 raw body, identity, token, path를 포함하지 않습니다.
+- CodexBar 요청은 최대 2회 시도 안에서 monotonic 총 15초 budget으로 동작합니다. 각 시도의 timeout은 남은 budget으로 제한되고, budget이 소진되면 재시도하지 않습니다.
+- `scripts/deploy-status-hub.sh`는 collector와 Swift helper를 같은 source tree에서 한 번에 설치합니다(Swift 빌드, ad-hoc 서명, 설치 후 hash 검증 포함). 설치는 transactional합니다. 첫 live 변경 이후의 모든 실패(명시적 오류뿐 아니라 `date`/hash/rename 같은 예기치 않은 실패 포함)는 rollback 경로로 복원되며, 복원 결과는 검증되고 검증된 경우에만 recovery backup을 정리합니다. 복원 자체가 실패하면 명시적 오류와 함께 backup을 보존합니다. manifest는 검증된 live artifact의 hash로 마지막에 기록됩니다. 목적지와 부모 디렉터리의 symlink, regular file이 아닌 목적지(FIFO/디렉터리 등)는 거부하고 따라가지 않으며 기록하지 않습니다.
+- `--verify-only`는 hash뿐 아니라 provenance까지 검증합니다. 같은 clean-source 정책을 요구하고, manifest의 key 집합이 정확히 일치하는지, `source_commit`이 source HEAD와 같은지, hash가 설치된 artifact와 같은지 확인합니다.
+- 실제 배포는 clean committed source에서만 허용됩니다. tracked/staged/untracked(무시되지 않은) 변경이 있으면 배포를 거부합니다.
+- 설치 provenance는 `~/.cache/ai-resource-hud/install.json`(`0600`)에 기록되며 `schema_version`, `source_commit`, `collector_sha256`, `menu_sha256`, `installed_at`, `runtime_version`만 포함합니다. 실제 배포가 아니라면 `--home`에 임시 root를 지정해 검증만 수행하고, LaunchAgent 재시작이나 AGY 설정 변경은 하지 않습니다.
 
 ## Status Cache 구조
 
